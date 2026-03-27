@@ -1,0 +1,51 @@
+import cv2
+import torch
+import csv
+from datetime import datetime
+from ultralytics import YOLO
+
+# 1. LOAD PRE-TRAINED YOLOv8 MODEL
+model = YOLO("yolov8n.pt")
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+model.to(device)
+
+# 2. INITIALIZE CAMERA
+cap = cv2.VideoCapture(0)
+cap.set(3, 1280)  # Width
+cap.set(4, 720)   # Height
+
+# 3. DETECTION LOOP
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        break
+
+    # Perform Inference
+    results = model(frame, conf=0.5, verbose=False)
+
+    # 4. PARSE & ANNOTATE RESULTS
+    for box in results[0].boxes:
+        x1, y1, x2, y2 = map(int, box.xyxy[0])
+        cls_id = int(box.cls[0])
+        label = model.names[cls_id]
+        conf = float(box.conf[0])
+
+        # Draw Bounding Box and Label
+        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        cv2.putText(frame, f"{label} {conf:.2f}",
+                    (x1, y1 - 10),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    (0, 255, 0),
+                    2)
+
+    # 5. DISPLAY & CONTROLS
+    cv2.imshow("YOLOv8 Detection", frame)
+
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+# Release resources
+cap.release()
+cv2.destroyAllWindows()
